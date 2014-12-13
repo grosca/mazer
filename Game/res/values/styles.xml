@@ -1,0 +1,25 @@
+<resources>
+
+    <style name="AppBaseTheme" parent="Theme.AppCompat"></style>
+
+    <style name="AppTheme" parent="AppBaseTheme">
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:textColor">@color/AppTextColor</item>
+    </style>
+
+    <style name="AppDialog" parent="@android:style/Theme.Dialog">
+        <item name="android:windowTitleStyle">@style/AppDialogTitle</item>
+        <item name="android:background">@color/AppBackground</item>
+    </style>
+
+    <style name="AppDialogTitle" parent="android:Widget.TextView">
+        <item name="android:textColor">#ffffff</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:background">@color/AppTitleBackground</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
+</resources>
