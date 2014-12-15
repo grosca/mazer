@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Santa Claus Christmas Rush</string>
+    <string name="app_name">Santa\'s Christmas Gift Rush</string>
     <string name="app_yes">Yes</string>
     <string name="app_no">No</string>
     <string name="app_confirm_exit_message">Are you sure you want to quit?</string>
@@ -13,5 +13,9 @@
     <string name="app_game_stats_title">Game stats</string>
     <string name="app_game_stats_fmt">Gifts collected: %1$d\r\nLevels played: %2$d</string>
     <string name="app_game_feedback">"Thank you for trying our game! Feel free to contact us at support@spatialia.com to provide some feedback, give us suggestions for new features, or to just say hello!"</string>
+    <string name="app_downloading_more_levels">Downloading more levels...</string>
+    <string name="app_no_internet">You need Internet to check out new levels. Tap this message to retry the download.</string>
+    <string name="app_no_more_levels">Currently, there are no other levels available. Please check again later.\r\nIn the mean time you can always build new levels at https://spatialia.com/santa/.</string>
+    <string name="app_loading">Loading...</string>
 
 </resources>

@@ -1,14 +1,16 @@
 package org.spatialia.santa;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import org.spatialia.santa.util.Perf;
+
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
-import android.graphics.drawable.BitmapDrawable;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -25,7 +27,6 @@ public class GameView extends SurfaceView {
 			setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
 		}
 	};
-	private BitmapDrawable background;
 
 	public void paint(Tile[][] world, Sprite mainCharacter,
 			List<Sprite> sprites, int blocksW, int blocksH, int w, int h) {
@@ -42,24 +43,24 @@ public class GameView extends SurfaceView {
 	public GameView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		surfaceHolder = getHolder();
-		background = (BitmapDrawable) getResources().getDrawable(
-				R.drawable.background);
 	}
 
-	private long average = 0;
+	private Bitmap background;
 
 	private void drawBoard(Tile[][] world, Sprite mainCharacter,
 			List<Sprite> sprites, int blocksW, int blocksH, int w, int h,
 			Canvas canvas) {
-		long start = System.currentTimeMillis();
+		Perf.start("drawBoard");
+
 		if (world == null) {
 			return;
 		}
 
-		canvas.drawRect(0, 0, getWidth(), getHeight(), paint);
-
-		background.setBounds(0, 0, w * blocksW, h * blocksH);
-		background.draw(canvas);
+		if (background == null || background.getWidth() != w) {
+			background = BitmapFactory.decodeResource(getResources(),
+					R.drawable.background);
+			background = Bitmap.createScaledBitmap(background, w, h, true);
+		}
 
 		int sy = mainCharacter.getY() - blocksH / 2;
 		int sx = mainCharacter.getX() - blocksW / 2;
@@ -68,22 +69,11 @@ public class GameView extends SurfaceView {
 		canvas.translate(-(sx * w + mainCharacter.getDeltaX()),
 				-(sy * h + mainCharacter.getDeltaY()));
 
-		// draw tiles; i = y j = x
-
 		// TODO: minimize this code
-		int ldx = sx, ldy = sy, rdx = sx + blocksW, rdy = sy + blocksH;
-
-		if (mainCharacter.getDeltaX() > 0) {
-			rdx += 1;
-		} else if (mainCharacter.getDeltaX() < 0) {
-			ldx -= 1;
-		}
-		if (mainCharacter.getDeltaY() > 0) {
-			rdy += 1;
-		} else if (mainCharacter.getDeltaY() < 0) {
-			ldy -= 1;
-		}
-		// TODO:
+		int ldx = sx - (mainCharacter.getDeltaX() < 0 ? 1 : 0);
+		int ldy = sy - (mainCharacter.getDeltaY() < 0 ? 1 : 0);
+		int rdx = sx + blocksW + (mainCharacter.getDeltaX() > 0 ? 1 : 0);
+		int rdy = sy + blocksH + (mainCharacter.getDeltaY() > 0 ? 1 : 0);
 
 		int visibleTiles = 0;
 		for (int ty = ldy; ty < rdy; ty++) {
@@ -92,6 +82,8 @@ public class GameView extends SurfaceView {
 				if (block != null) {
 					visibleTiles++;
 					block.draw(canvas, paint);
+				} else {
+					canvas.drawBitmap(background, tx * w, ty * h, paint);
 				}
 			}
 		}
@@ -111,21 +103,16 @@ public class GameView extends SurfaceView {
 
 		canvas.restoreToCount(saveCount);
 
-		long end = System.currentTimeMillis();
-		times.add(end - start);
-
-		if (times.size() > 100) {
-			long sum = 0;
-			for (Long t : times) {
-				sum += t;
-			}
-			average = sum / times.size();
-			times.clear();
+		if (getWidth() > blocksW * w) {
+			canvas.drawRect(blocksW * w, 0, getWidth(), getHeight(), paint);
 		}
 
 		canvas.drawRect(0, getHeight() - 40, getWidth(), getHeight(), paint);
-		canvas.drawText(String.format("%d ms. %d sprites. %d tiles.", average,
-				visibleSprites, visibleTiles), 10, getHeight() - 18, textPaint);
+		canvas.drawText(String.format("%d ms. %d sprites. %d tiles.",
+				Perf.average("drawBoard", 100), visibleSprites, visibleTiles),
+				10, getHeight() - 18, textPaint);
+
+		Perf.end("drawBoard");
 	}
 
 	private Tile getTile(Tile[][] world, int i, int j) {
@@ -134,6 +121,4 @@ public class GameView extends SurfaceView {
 		}
 		return world[j][i];
 	}
-
-	private List<Long> times = new ArrayList<Long>();
 }

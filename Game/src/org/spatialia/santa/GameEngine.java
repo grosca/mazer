@@ -3,9 +3,10 @@ package org.spatialia.santa;
 import org.spatialia.santa.logic.Level;
 import org.spatialia.santa.logic.LevelManager;
 
-import android.content.res.Resources;
-
 public class GameEngine extends GameInput implements Runnable {
+
+	public interface Handler {
+	}
 
 	private GameView view;
 	private LevelManager model;
@@ -18,13 +19,10 @@ public class GameEngine extends GameInput implements Runnable {
 		this.model = model;
 	}
 
-	// TODO: remove this
-	private Resources resources;
 	private Level level;
 
-	public void init(Resources resources, Level level) {
+	public void init(Level level) {
 		this.level = level;
-		this.resources = resources;
 
 		view.setOnTouchListener(this);
 	}
@@ -108,10 +106,6 @@ public class GameEngine extends GameInput implements Runnable {
 		while (running) {
 			sleep(25);
 
-			synchronized (model) {
-				initSizeAndResources();
-			}
-
 			if (mainCharacter == null) {
 				continue;
 			} else {
@@ -140,12 +134,9 @@ public class GameEngine extends GameInput implements Runnable {
 
 			if (mainCharacter.getX() == level.getEnd().x
 					&& mainCharacter.getY() == level.getEnd().y) {
-				// TODO: level finished;
-				loaded = false;
-				init(resources, model.getNextLevel());
-				mainCharacter.setX(level.getStart().x);
-				mainCharacter.setY(level.getStart().y);
-				initSizeAndResources();
+				model.onLevelComplete();
+				// TODO: better
+				mainCharacter = null;
 			} else if (mainCharacter.getX() == level.getStart().x
 					&& mainCharacter.getY() == level.getStart().y) {
 			}
@@ -227,33 +218,31 @@ public class GameEngine extends GameInput implements Runnable {
 	private int w;
 	private int h;
 
-	private boolean loaded = false;
-
-	private void initSizeAndResources() {
-		if (!loaded && view.getWidth() > 0 && view.getHeight() > 0) {
-			if (view.getWidth() < view.getHeight()) {
-				blocksW = 7;
-				blocksH = 12;
-			} else {
-				blocksW = 12;
-				blocksH = 7;
-			}
-
-			w = view.getWidth() / blocksW;
-			h = view.getHeight() / blocksH;
-
-			loadResources(w, h);
-
-			loaded = true;
+	/**
+	 * Called whenever the screen size is changing.
+	 * 
+	 * @param screenWidth
+	 * @param screenHeight
+	 */
+	public void initScreenSize(int screenWidth, int screenHeight) {
+		if (model.getCurrLevel() == null || view == null) {
+			return;
 		}
-	}
-
-	public void onRotate() {
 		synchronized (view) {
 			synchronized (model.getCurrLevel()) {
 				model.saveGameState();
-				loaded = false;
-				initSizeAndResources();
+
+				if (screenWidth < screenHeight) {
+					blocksW = 7;
+					blocksH = 12;
+				} else {
+					blocksW = 12;
+					blocksH = 7;
+				}
+				w = screenWidth / blocksW;
+				h = screenHeight / blocksH;
+
+				mainCharacter = model.loadResources(w, h);
 				model.restoreGameState();
 			}
 		}
@@ -263,9 +252,5 @@ public class GameEngine extends GameInput implements Runnable {
 	private void paint() {
 		view.paint(level.getTiles(), mainCharacter, level.getSprites(),
 				blocksW, blocksH, w, h);
-	}
-
-	private void loadResources(int w, int h) {
-		mainCharacter = model.loadResources(w, h);
 	}
 }

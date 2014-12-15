@@ -206,12 +206,4 @@ public class Sprite extends Tile {
 					+ deltaY, paint);
 		}
 	}
-
-	public int getLeft() {
-		return x * w;
-	}
-
-	public int getTop() {
-		return y * h;
-	}
 }

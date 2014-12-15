@@ -5,40 +5,45 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.spatialia.santa.R;
 import org.spatialia.santa.Sprite;
 import org.spatialia.santa.Tile;
-import org.spatialia.santa.GameInput.Movement;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
+import android.util.Base64;
 
 /**
  * Level interface. It provides the world, tiles, sprites, etc.
  */
 public class Level {
-	/**
-	 * 
-	 * @param mgr
-	 * @param world
-	 * @param blankId
-	 *            the grass res id
-	 * @param wallId
-	 *            the wall res id
-	 */
-	public Level(int levelId, int[][] world, int blankId, int wallId,
-			int monsterId, int giftId) {
-		this.levelId = levelId;
-		this.blankId = blankId;
-		this.wallId = wallId;
-		this.monsterId = monsterId;
-		this.giftId = giftId;
-		this.world = world;
 
+	private JSONArray images;
+
+	private int levelId;
+
+	private int[][] world;
+	private Point start, end;
+
+	// the size of a block in pixels
+	private List<Sprite> sprites;
+	private Tile[][] tiles;
+
+	public Level(int levelId, JSONObject json) throws Exception {
+		this.levelId = levelId;
+
+		JSONArray array = json.getJSONArray("array");
+		world = new int[array.length()][array.getJSONArray(0).length()];
+
+		JSONArray subArray = null;
 		for (int y = 0; y < world.length; y++) {
+			subArray = array.getJSONArray(y);
 			for (int x = 0; x < world[0].length; x++) {
+				world[y][x] = subArray.getInt(x);
 				if (world[y][x] == 2) {
 					this.start = new Point(x, y);
 				} else if (world[y][x] == 3) {
@@ -46,43 +51,23 @@ public class Level {
 				}
 			}
 		}
+
+		images = json.getJSONArray("images");
 	}
 
-	private int levelId;
-
+	// TODO: improve shared prefs writins of 280 keys
 	private void saveSprite(int pos, Sprite sprite, Settings settings) {
 		String settingsPrefix = String
 				.format("level%d.sprite%d.", levelId, pos);
 
-		settings.setInt(settingsPrefix + "x", sprite.getX());
-		settings.setInt(settingsPrefix + "y", sprite.getY());
-		settings.setInt(settingsPrefix + "dx", sprite.getDx());
-		settings.setInt(settingsPrefix + "dy", sprite.getDy());
-		settings.setInt(settingsPrefix + "deltaX", sprite.getDeltaX());
-		settings.setInt(settingsPrefix + "deltaY", sprite.getDeltaY());
-		settings.setString(settingsPrefix + "direction", sprite.getDirection()
-				.name());
-		settings.setBoolean(settingsPrefix + "visible", sprite.isVisible());
+		settings.setSprite(settingsPrefix, sprite);
 	}
 
 	private void restoreSprite(int pos, Sprite sprite, Settings settings) {
 		String settingsPrefix = String
 				.format("level%d.sprite%d.", levelId, pos);
 
-		if (settings.getInt(settingsPrefix + "deltaX") != -1) {
-			sprite.setX(settings.getInt(settingsPrefix + "x"));
-			sprite.setY(settings.getInt(settingsPrefix + "y"));
-			sprite.setDx(settings.getInt(settingsPrefix + "dx"));
-			sprite.setDy(settings.getInt(settingsPrefix + "dy"));
-			sprite.setDeltaX(settings.getInt(settingsPrefix + "deltaX"));
-			sprite.setDeltaY(settings.getInt(settingsPrefix + "deltaY"));
-
-			String dir = settings.getString(settingsPrefix + "direction");
-			if (dir.length() > 0) {
-				sprite.setDirection(Movement.valueOf(dir));
-			}
-			sprite.setVisible(settings.getBoolean(settingsPrefix + "visible"));
-		}
+		settings.getSprite(settingsPrefix, sprite);
 	}
 
 	public void saveState(Settings settings) {
@@ -92,7 +77,6 @@ public class Level {
 			}
 			saveSprite(-1, mainCharacter, settings);
 		}
-		System.err.println("saved game state.");
 	}
 
 	public void restoreState(Settings settings) {
@@ -100,21 +84,23 @@ public class Level {
 			restoreSprite(i, sprites.get(i), settings);
 		}
 		restoreSprite(-1, mainCharacter, settings);
-		System.err.println("restored game state.");
 	}
-
-	private int blankId, wallId, monsterId, giftId;
-
-	private int[][] world;
-	private Point start, end;
-
-	// the size of a block in pixels
-	private List<Sprite> sprites;
-	private Tile[][] tiles;
 
 	public Sprite getSprite(Resources resources, int resId, int states, int x,
 			int y, int w, int h, int dx, int dy) {
-		Bitmap bitmap = BitmapFactory.decodeResource(resources, resId);
+		Bitmap bitmap = null;
+		if (resources == null) {
+			try {
+				byte[] decodedString = Base64.decode(images.getString(resId),
+						Base64.DEFAULT);
+				bitmap = BitmapFactory.decodeByteArray(decodedString, 0,
+						decodedString.length);
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		} else {
+			bitmap = BitmapFactory.decodeResource(resources, resId);
+		}
 
 		final String id = resId + "_" + w + "_" + h;
 
@@ -157,19 +143,8 @@ public class Level {
 
 		for (int i = 0; i < world.length; i++) {
 			for (int j = 0; j < world[0].length; j++) {
-				if (world[i][j] == 1) {
-					tiles[i][j] = new Tile(getBitmap(resources, wallId, w, h),
-							j * w, i * h);
-				} else if (world[i][j] == 2) {
-					tiles[i][j] = new Tile(getBitmap(resources,
-							R.drawable.start, w, h), j * w, i * h);
-				} else if (world[i][j] == 3) {
-					tiles[i][j] = new Tile(getBitmap(resources, R.drawable.end,
-							w, h), j * w, i * h);
-				} else {
-					tiles[i][j] = new Tile(getBitmap(resources, blankId, w, h),
-							j * w, i * h);
-				}
+				int tileId = world[i][j] > 3 ? 0 : world[i][j];
+				tiles[i][j] = new Tile(getBitmap(tileId, w, h), j * w, i * h);
 				if (world[i][j] == 5) {
 					int dx = 0;
 					int dy = 0;
@@ -178,12 +153,12 @@ public class Level {
 					} else if (canGo(j + 1, i) || canGo(j - 1, i)) {
 						dx = 1;
 					}
-					Sprite sprite = getSprite(resources, monsterId, 4, j, i, w,
-							h, dx, dy);
+					Sprite sprite = getSprite(null, world[i][j], 4, j, i, w, h,
+							dx, dy);
 					sprite.setId(world[i][j]);
 					sprites.add(sprite);
 				} else if (world[i][j] == 4) {
-					Sprite sprite = getSprite(resources, giftId, 5, j, i, w, h,
+					Sprite sprite = getSprite(null, world[i][j], 5, j, i, w, h,
 							0, 0);
 					sprite.setId(world[i][j]);
 					sprites.add(sprite);
@@ -205,12 +180,19 @@ public class Level {
 	private Map<String, Bitmap[]> spriteCache = new HashMap<String, Bitmap[]>();
 	private Map<String, Bitmap> cache = new HashMap<String, Bitmap>();
 
-	private Bitmap getBitmap(Resources resources, int resId, int w, int h) {
+	private Bitmap getBitmap(int resId, int w, int h) {
 		final String id = resId + "_" + w + "_" + h;
 		if (!cache.containsKey(id)) {
-			Bitmap bmp = BitmapFactory.decodeResource(resources, resId);
-			bmp = Bitmap.createScaledBitmap(bmp, w, h, true);
-			cache.put(id, bmp);
+			try {
+				byte[] decodedString = Base64.decode(images.getString(resId),
+						Base64.DEFAULT);
+				Bitmap bmp = BitmapFactory.decodeByteArray(decodedString, 0,
+						decodedString.length);
+				bmp = Bitmap.createScaledBitmap(bmp, w, h, true);
+				cache.put(id, bmp);
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
 		}
 		return cache.get(id);
 	}

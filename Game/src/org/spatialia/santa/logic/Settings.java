@@ -1,18 +1,19 @@
 package org.spatialia.santa.logic;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+
+import org.json.JSONObject;
+import org.spatialia.santa.Sprite;
+import org.spatialia.santa.GameInput.Movement;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 
 /**
  * Re-usable settings component. 9/9/2013
  */
-public class Settings implements OnSharedPreferenceChangeListener {
+public class Settings {
 
 	public static final String SETTINGS_FILE = "app.settings";
 
@@ -21,10 +22,6 @@ public class Settings implements OnSharedPreferenceChangeListener {
 
 	public static final String LEVEL = "level";
 	public static final String GIFTS = "gifts";
-
-	public interface Observer {
-		public void onPreferenceChanged(String preference);
-	}
 
 	public Settings(Context context) {
 		m_context = context.getApplicationContext();
@@ -97,67 +94,54 @@ public class Settings implements OnSharedPreferenceChangeListener {
 		edit.commit();
 	}
 
-	public float[] getArray(String name, int size) {
-		float array[] = new float[size];
-		String list = m_prefs.getString(name, "");
+	public void getSprite(String name, Sprite sprite) {
+		try {
+			JSONObject obj = new JSONObject(m_prefs.getString(name, ""));
 
-		String[] values = list.split(";");
+			if (obj.getInt(name + "deltaX") != -1) {
+				sprite.setX(obj.getInt(name + "x"));
+				sprite.setY(obj.getInt(name + "y"));
+				sprite.setDx(obj.getInt(name + "dx"));
+				sprite.setDy(obj.getInt(name + "dy"));
+				sprite.setDeltaX(obj.getInt(name + "deltaX"));
+				sprite.setDeltaY(obj.getInt(name + "deltaY"));
 
-		for (int i = 0; i < values.length && i < array.length; i++) {
-			try {
-				array[i] = Float.parseFloat(values[i]);
-			} catch (NumberFormatException ex) {
+				String dir = obj.getString(name + "direction");
+				if (dir.length() > 0) {
+					sprite.setDirection(Movement.valueOf(dir));
+				}
 
+				sprite.setVisible(obj.getBoolean(name + "visible"));
 			}
+		} catch (Exception ex) {
 		}
-
-		return array;
 	}
 
-	public void setArray(String name, float[] array) {
+	public void setSprite(String name, Sprite sprite) {
 		if (m_prefs == null) {
 			return;
 		}
 		SharedPreferences.Editor edit = m_prefs.edit();
-		String list = "";
-		for (int i = 0; i < array.length; i++) {
-			list += array[i] + ";";
+
+		JSONObject obj = new JSONObject();
+		try {
+			obj.put(name + "x", sprite.getX());
+			obj.put(name + "y", sprite.getY());
+			obj.put(name + "dx", sprite.getDx());
+			obj.put(name + "dy", sprite.getDy());
+			obj.put(name + "deltaX", sprite.getDeltaX());
+			obj.put(name + "deltaY", sprite.getDeltaY());
+			obj.put(name + "direction", sprite.getDirection().name());
+			obj.put(name + "visible", sprite.isVisible());
+		} catch (Exception ex) {
 		}
-		edit.putString(name, list);
+
+		edit.putString(name, obj.toString());
 		edit.commit();
-	}
-
-	public void addObserver(Observer observer) {
-		if (m_lstObservers.size() == 0) {
-			m_prefs.registerOnSharedPreferenceChangeListener(this);
-		}
-
-		m_lstObservers.add(observer);
-	}
-
-	public void removeObserver(Observer observer) {
-		m_lstObservers.remove(observer);
-
-		if (m_lstObservers.size() == 0) {
-			m_prefs.unregisterOnSharedPreferenceChangeListener(this);
-		}
-	}
-
-	@Override
-	public void onSharedPreferenceChanged(SharedPreferences prefs,
-			String preference) {
-		notifyAllObservers(preference);
-	}
-
-	protected void notifyAllObservers(String preference) {
-		for (Observer observer : m_lstObservers) {
-			observer.onPreferenceChanged(preference);
-		}
 	}
 
 	private SharedPreferences m_prefs;
 	private Context m_context;
-	private List<Observer> m_lstObservers = new ArrayList<Observer>();
 
 	public static void setDefaultValue(String s, Object o) {
 		m_mDefValues.put(s, o);
